@@ -1,0 +1,3 @@
+tx_id,timestamp,direction,peer_address,amount_sompi,cex_label
+ed49d374fbcc0e4048f8c2ec93117508e029fc40bf04db8b4d6925dcbfe454c6,2023-10-22T05:19:42.944000,sent,kaspa:qz3h6ydvqmtxe327tsdlksme6xuy65luapc32r0vdck78d3lpyqxgxp6mz5ty,2670720920000,
+65bcef8046fb0a03c65305650be5a435edcd419ab67c8e585df96094de1b0015,2023-10-17T13:01:29.668000,received,kaspa:qz8xuzpxte5edmguqmsumkha33sedq8q0aw6swwd78x3ygx65l7cvd2mnl274,2670720930000,
