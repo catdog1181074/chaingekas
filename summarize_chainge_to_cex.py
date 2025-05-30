@@ -5,11 +5,11 @@ from collections import defaultdict, deque
 
 FLOW_DATA_DIR = "flow_data"
 MAX_DEPTH = 4
-THRESHOLD = 0.85
+THRESHOLD = 0.98
 
 CHAINGE_ORIGINS = {
     "kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5",
-    "kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty",
+    # "kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty", # funded ~26% by Chainge, received ~57M Kas from Chainge Finance wallet
     "kaspa:qpgmt2dn8wcqf0436n0kueap7yx82n7raurlj6aqjc3t3wm9y5ssqtg9e4lsm",
     "kaspa:qpy03sxk3z22pacz2vkn2nrqeglvptugyqy54xal2skha6xh0cr7wjueueg79",
     "kaspa:qz9cqmddjppjyth8rngevfs767m5nvm0480nlgs5ve8d6aegv4g9xzu2tgg0u"
@@ -110,4 +110,3 @@ total_kas = df_final["amount_kas"].sum()
 print(f"🔍 Total KAS sent from ≥85%-Chainge-funded wallets to CEXes: {total_kas:,.2f} KAS\\n")
 for row in df_summary.itertuples():
     print(f"{row.cex:8} → {row.to_wallet} : {row.amount_kas:,.2f} KAS")
-    
