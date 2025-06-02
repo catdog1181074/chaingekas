@@ -107,6 +107,6 @@ df_final = df_deposits[df_deposits["sender"].isin(eligible_wallets)]
 df_summary = df_final.groupby(["cex", "to_wallet"], as_index=False)["amount_kas"].sum()
 total_kas = df_final["amount_kas"].sum()
 
-print(f"🔍 Total KAS sent from ≥85%-Chainge-funded wallets to CEXes: {total_kas:,.2f} KAS\\n")
+print(f"🔍 Total KAS sent from ≥{THRESHOLD:.0%}-Chainge-funded wallets to CEXes: {total_kas:,.2f} KAS\\n")
 for row in df_summary.itertuples():
     print(f"{row.cex:8} → {row.to_wallet} : {row.amount_kas:,.2f} KAS")
