@@ -1,29 +1,28 @@
 # 🧾 Chainge-to-CEX Kaspa Flow Analysis
 
-This repository investigates how much native Kaspa (KAS) Chainge Finance likely controlled — and how much it transferred to centralized exchanges (CEXes), presumably for liquidation. The analysis is based on transaction-level tracing on the Kaspa blockchain using the [KrcBot public API](https://krcbot.com/api-docs).
+This repository investigates how much native Kaspa (KAS) Chainge Finance likely controlled — and how much was transferred to centralized exchanges (CEXes), presumably for liquidation. The analysis is based on transaction-level tracing using the [KrcBot public API](https://krcbot.com/api-docs), and results are visualized as a verified shell graph.
 
 ---
 
 ## ❓ Why This Matters
 
-Since late 2024, Chainge Finance has frozen the **wKAS → KAS bridge**, initially citing security concerns, then liquidity issues, and later claiming its vaults had been blacklisted. DJ Qian, the founder, promised intervention and a "liquidity injection," but as of mid-2025, many users’ funds remain trapped in wKAS.
+Since late 2024, Chainge Finance has frozen the **wKAS → KAS bridge**, citing security, liquidity, and vault blacklisting concerns. DJ Qian, Chainge’s founder, has repeatedly promised a “liquidity injection,” but as of mid-2025, users remain unable to redeem wKAS.
 
-Despite repeated claims that the bridge will reopen, no clear reserve proof or redemption pathway has been provided.
+Despite claims that the bridge will reopen, no proof-of-reserves or redemption path has been provided.
 
-This raises a critical question:
+> **This raises the question:**
+> Has the native KAS meant to back wKAS been retained — or sold?
 
-> **Does Chainge still hold enough native KAS to back wKAS 1:1 — or has that KAS been sold?**
-
-This repository traces the flow of native KAS from known Chainge wallets to known CEX deposit addresses.
+This repository traces actual KAS outflows from Chainge-linked wallets to known exchange deposit addresses.
 
 ---
 
 ## 📁 Contents
 
-- `flow_data/` — Wallet-level transaction histories, downloaded via KrcBot
-- `trace_wallet_recursive.py` — Recursively fetches and saves wallet transaction data
-- `summarize_chainge_to_cex.py` — Computes total KAS sent to CEX addresses, filtered by funding attribution
-- `summary_chainge_to_cex_vs_threshold.py` — Analyzes KAS-to-CEX deposits as a function of attribution threshold
+- `flow_data/` — All wallet-level transaction CSVs (from KrcBot)
+- `chainge_flow_shell_annot.py` — Full tracing, attribution, and graph visualization
+- `summarize_chainge_to_cex.py` — Aggregates deposit totals by attribution source
+- `summary_chainge_to_cex_vs_threshold.py` — Plots CEX flows as a function of attribution threshold
 
 ---
 
@@ -31,69 +30,92 @@ This repository traces the flow of native KAS from known Chainge wallets to know
 
 ### Step 1: Recursive Wallet Tracing
 
-We begin with **5 labelled Chainge wallets**, including:
-- 🟩 The Chainge Finance Root wallet (kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5)  
-- 🟩 3 labeled Chainge wallets on kas.fyi (kaspa:qpgmt2dn8wcqf0436n0kueap7yx82n7raurlj6aqjc3t3wm9y5ssqtg9e4lsm, kaspa:qpy03sxk3z22pacz2vkn2nrqeglvptugyqy54xal2skha6xh0cr7wjueueg79, kaspa:qz9cqmddjppjyth8rngevfs767m5nvm0480nlgs5ve8d6aegv4g9xzu2tgg0u)  
-- 🟩 The "Vault" (now **excluded from attribution** due to only ~26% funding from known Chainge sources, though directly received ~57M Kas from Root wallet in Jan 2024)
+We begin with 4 Chainge-linked wallets:
+- 🟠 `qqwvnk...` (Root wallet)
+- 🟠 3 other wallets labeled on kas.fyi
+- ❌ The previously so-called “Vault” wallet is excluded due to weak linkage (only ~26% of inflow from Chainge)
 
-We trace wallet inflows up to **4 hops deep**, building a “trust graph” of which wallets are funded (directly or indirectly) by Chainge.
-
----
-
-### Step 2: Source Attribution by Threshold
-
-For each wallet that sent KAS to a known CEX deposit address, we:
-- Analyze its funding history
-- Calculate the **% of total inflow originating from Chainge wallets**
-
-Only wallets with **≥85% Chainge attribution** are included in the primary analysis. This avoids false positives and ensures we only include wallets likely controlled by Chainge.
+We recursively trace wallet inflows up to **4 hops deep**, forming a funding graph from Chainge to any recipient wallet.
 
 ---
 
-### Step 3: Identifying CEX Deposits
+### Step 2: Attribution Filtering (≥95%)
 
-We match deduplicated `tx_id` entries against a manually verified list of MEXC, Gate.io, and CoinEx deposit wallets. We then aggregate:
-- Total KAS deposited per CEX
-- Total KAS deposited by all ≥85% Chainge-linked wallets
+For each wallet that sent KAS to a known CEX:
+- We compute the **% of its total inflow that came (directly or indirectly) from Chainge**
+- Only wallets with **≥95% Chainge funding** are included
+
+This ensures we only count flows from wallets highly likely to be Chainge-controlled or Chainge-funded.
+
+---
+
+### Step 3: CEX Matching + Deduplication
+
+We match deposit `tx_id`s against a verified list of:
+- MEXC deposit wallets
+- Gate.io deposit wallets
+- CoinEx deposit wallets
+
+Each transaction is **deduplicated** by `tx_id`. Totals are aggregated per exchange.
+
+---
+
+### Step 4: Graph Visualization
+
+We build a shell-based flow graph:
+- 🟠 Chainge wallets at the center
+- 🔵 Verified intermediaries layered by hop count
+- 🔴 CEX wallets forced into the outermost shell
+
+Edge widths are scaled by transfer volume (capped to 10×).
+
+📤 See: `chainge_verified_shell_final.png` and `.pdf`
 
 ---
 
 ## 🔍 Assumptions & Limitations
 
-- **≥85% threshold** avoids attributing mixed-source wallets to Chainge
-- **4-hop trace depth** provides adequate reach while keeping the graph computationally manageable
-- **Known CEX deposit addresses only** — undisclosed CEX wallets are not captured
-- **One-directional trace** — inflows back from CEXes are not analyzed
+- **≥95% attribution threshold** avoids over-attribution to Chainge
+- **4-hop trace depth** balances accuracy and reach
+- **Only known CEX deposit addresses** are included
+- **Vault wallet excluded** from attribution and flow due to weak linkage
 
-The Vault wallet is **excluded from attribution** in the final analysis due to insufficient linkage (only ~26% of its inflow came from Chainge Root or labelled wallets).
+All data is one-directional (Chainge → CEX). No return flows or self-custody are considered.
 
 ---
 
 ## 🚨 API Usage Warning
 
 All transaction data comes from [KrcBot’s public API](https://krcbot.com/api-docs).  
-**Do not re-run the full trace unless absolutely necessary**, as this may overload public infrastructure.
+**Please avoid re-running full traces unnecessarily**, as this may overload public nodes.
 
-Use the included pre-fetched `.csv` files in `flow_data/` — unzip the `.zip` archive to proceed with local analysis.
+Use the included pre-fetched `.csv` files in `flow_data/`.
 
 ---
 
-## 📊 Key Finding
+## 📊 Key Findings
 
-> 💥 **~332 million KAS** was deposited to MEXC and other CEXes by wallets ≥85% funded by Chainge Root or known Chainge-linked wallets.
+💥 **~318 million KAS** was deposited to exchanges from wallets ≥95% funded by Chainge
 
-Most of these deposits went to **MEXC**, not Gate.io — contradicting earlier assumptions.  
-This strongly supports the conclusion that **Chainge Finance liquidated a large portion of its native KAS holdings**.
+Breakdown:
+- **MEXC**: ~299M
+- **Gate.io**: 19M
+
+
+📈 Most liquidation occurred through MEXC — not Gate.io.
+
+The visualized graph shows strong and direct off-ramp behavior from Chainge-origin wallets to CEXes.
 
 ---
 
 ## 🤝 Contributing & Verification
 
-This repository is designed to be **transparent and reproducible**. You can:
-- Propose new wallet tags for Chainge or CEXes
-- Tune the attribution threshold
-- Fork and run your own analysis
-- Compare with other datasets (e.g., @KasperoLabs or @KrcBot)
+This repo is designed to be transparent, reproducible, and audit-friendly.
 
-We welcome peer review and collaboration.
+You can:
+- Suggest updated wallet labels
+- Tune attribution thresholds
+- Fork and modify hop-depth or flow constraints
+- Compare with @KasperoLabs
 
+We welcome peer review and alternative visualizations.
