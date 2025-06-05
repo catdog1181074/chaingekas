@@ -100,8 +100,8 @@ def trace_wallet(state, address, depth, force=False):
     for i, tx in enumerate(txs):
         txid = tx.get("transaction_id")
         timestamp = format_timestamp(tx.get("block_time"))
-        inputs = tx.get("inputs", [])
-        outputs = tx.get("outputs", [])
+        inputs = tx.get("inputs") or []
+        outputs = tx.get("outputs") or []        
         recipients = []
         sender = None
 
