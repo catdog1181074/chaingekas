@@ -1,36 +1,51 @@
 import requests
-import csv
 import time
 import os
-from datetime import datetime
+import json
+import pandas as pd
+from datetime import datetime, timezone
 
 API_BASE = "https://api.kaspa.org"
-CEX_ADDRESSES = {
-    "kaspa:qzrula2hgnym93zuwetfaxw7valc9j967scgcxgxg3yzkgd2nfgm26erngrfh": "MEXC",
-    "kaspa:qpjunp39ssazf4rzfxxu0hd35xggfxn6lq0ls9u9q6peevzcmcv4xmv9q4njd": "MEXC",
-    "kaspa:qqetp7ct8kqss99fxmymyz5t3fezppxp0t58wl6pawp27elqd46uudme00cl0": "MEXC",
-    "kaspa:qpzpfwcsqsxhxwup26r55fd0ghqlhyugz8cp6y3wxuddc02vcxtjg75pspnwz": "MEXC",
-    "kaspa:qz7gtc6gkgcj482s6jltww0j4n7664dhvgut5t4pn7333l7mmwah7veg0zxjq": "MEXC",
-    "kaspa:qrayw3qwwza362uxrqxntatnz3s7pzqha7amu532p82khklugkhgj2ls49n98": "MEXC",
-    "kaspa:qp3dpzfcjp2d7n5pslneg8wkkvp8wrw0ae60jff4a8evr6qn6g2gks0qspre3": "MEXC",
-    "kaspa:qpr5pdq0a7cn28vnh37099yaayf7zkjz30az60atk4pdqknnnwhnxww43zgpw": "MEXC",
-    "kaspa:qrj59crrt87qul4p7e9ywa7mz42cffjmk29p7ry7fd8vuxmla6fw5t4yscq00": "MEXC",
-    "kaspa:qrelgny7sr3vahq69yykxx36m65gvmhryxrlwngfzgu8xkdslum2yxjp3ap8m": "Gate.io",
-    "kaspa:qpqpyavkqnp60q6t4sfctz4yp3n0ct963z65rxkd5ft32vkehnd3wx8jqctr2": "CoinEx"
-}
+graph_data = {}
+CHECKPOINT_FILE = "flow_data/tracer_state.json"
+MAX_DEPTH = 2
+START_TIMESTAMP_MS = 1685577600000  # June 1, 2023
 
+def load_state():
+    state = {"queue": [], "completed": set()}
+    if os.path.exists(CHECKPOINT_FILE):
+        with open(CHECKPOINT_FILE, "r") as f:
+            loaded = json.load(f)
+            state["queue"] = loaded.get("queue", [])
+            state["completed"] = set(loaded.get("completed", []))
+    return state
 
-visited = set()
+def save_state(state):
+    to_save = {
+        "queue": state["queue"],
+        "completed": list(state["completed"])
+    }
+    with open(CHECKPOINT_FILE, "w") as f:
+        json.dump(to_save, f, indent=2)
 
-def fetch_transactions(address, max_pages=20):
+def format_timestamp(ms_timestamp):
+    try:
+        return datetime.fromtimestamp(ms_timestamp / 1000, tz=timezone.utc).isoformat()
+    except Exception:
+        return ""
+
+def fetch_transactions(address, max_pages=100, start_timestamp=START_TIMESTAMP_MS):
     txs = []
     before = int(time.time() * 1000)
     retries = 0
 
     for _ in range(max_pages):
-        url = f"{API_BASE}/addresses/{address}/full-transactions-page?limit=100&before={before}"
+        url = (
+            f"{API_BASE}/addresses/{address}/full-transactions-page"
+            f"?limit=500&before={before}&after=0"
+            f"&resolve_previous_outpoints=full&acceptance=accepted"
+        )
         print(f"📦 Fetching transactions before {before} for {address}")
-
         try:
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
@@ -49,68 +64,101 @@ def fetch_transactions(address, max_pages=20):
             print("✅ No more transactions.")
             break
 
-        txs.extend(data)
+        block_times = [tx.get("block_time", 0) for tx in data if tx.get("block_time")]
+        if block_times:
+            min_time = format_timestamp(min(block_times))
+            max_time = format_timestamp(max(block_times))
+            print(f"📅 Page covers: {min_time} to {max_time}")
+
+        filtered = [tx for tx in data if tx.get("block_time", 0) >= start_timestamp]
+        txs.extend(filtered)
         before = min(tx.get("block_time", before) for tx in data)
         time.sleep(0.25)
+
     print(f"✅ Total fetched: {len(txs)} transactions for {address}")
     return txs
 
-
-def format_timestamp(ms_timestamp):
-    try:
-        return datetime.utcfromtimestamp(ms_timestamp / 1000).isoformat()
-    except Exception:
-        return ""
-
-def trace_wallet(address, depth=2, output_dir="flow_data", force=False):
-    # Resume: skip if file already exists
-    if depth < 0 or address in visited:
+def trace_wallet(state, address, depth, force=False):
+    if depth < 0 or (address in state["completed"] and not force):
         return
 
-    filename = f"{output_dir}/{address.replace(':', '_')}.csv"
+    print(f"🔍 Tracing {address} at depth {depth}")
+    filename = f"flow_data/{address.replace(':', '_')}.csv"
+    jsonfile = f"flow_data/{address.replace(':', '_')}_graph.json"
+
     if os.path.exists(filename) and not force:
         print(f"⏩ Skipping {address} (already processed)")
-        visited.add(address)
         return
 
-    visited.add(address)
     txs = fetch_transactions(address)
-    os.makedirs(output_dir, exist_ok=True)
 
-    with open(filename, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["tx_id", "timestamp", "direction", "peer_address", "amount_sompi", "cex_label"])
+    os.makedirs("flow_data", exist_ok=True)
 
-        for tx in txs:
-            txid = tx.get("transaction_id")
-            timestamp = format_timestamp(tx.get("block_time"))
-            inputs = tx.get("inputs") or []
-            outputs = tx.get("outputs") or []
+    edges = []
+    rows = []
 
-            for inp in inputs:
-                if inp.get("previous_outpoint_address") == address:
-                    for out in outputs:
-                        to_addr = out.get("script_public_key_address")
-                        amt = out.get("amount", 0)
-                        if to_addr and to_addr != address:
-                            label = CEX_ADDRESSES.get(to_addr, "")
-                            writer.writerow([txid, timestamp, "sent", to_addr, amt, label])
-                            if to_addr not in CEX_ADDRESSES:
-                                trace_wallet(to_addr, depth - 1, output_dir)
+    for i, tx in enumerate(txs):
+        txid = tx.get("transaction_id")
+        timestamp = format_timestamp(tx.get("block_time"))
+        inputs = tx.get("inputs", [])
+        outputs = tx.get("outputs", [])
+        recipients = []
+        sender = None
 
-            for out in outputs:
-                if out.get("script_public_key_address") == address:
-                    amt = out.get("amount", 0)
-                    for inp in inputs:
-                        from_addr = inp.get("previous_outpoint_address")
-                        if from_addr and from_addr != address:
-                            label = CEX_ADDRESSES.get(from_addr, "")
-                            writer.writerow([txid, timestamp, "received", from_addr, amt, label])
-                            if from_addr not in CEX_ADDRESSES:
-                                trace_wallet(from_addr, depth - 1, output_dir)
+        for out in outputs:
+            addr = out.get("script_public_key_address")
+            amt = out.get("amount", 0)
+            if addr:
+                recipients.append((addr, amt))
+
+        for inp in inputs:
+            if inp.get("previous_outpoint_address"):
+                sender = inp.get("previous_outpoint_address")
+                break
+
+        if i%100==0: print(f"🔎 [{i+1}/{len(txs)}] tx: {txid} | sender: {sender or '(unknown)'} | recipients: {len(recipients)}")
+
+        for recipient, amount in recipients:
+            rows.append({
+                "tx_id": txid,
+                "timestamp": timestamp,
+                "sender": sender or "(unknown)",
+                "recipient": recipient,
+                "amount_sompi": amount
+            })
+            if sender and recipient:
+                edges.append((sender, recipient))
+            if recipient and recipient not in state["completed"]:
+                state["queue"].append({"address": recipient, "depth": depth - 1})
+
+    if rows:
+        df = pd.DataFrame(rows)
+        df.to_csv(filename, index=False)
+        print(f"📝 Wrote {len(rows)} rows to {filename}")
+
+    graph_data[address] = {"edges": edges}
+    with open(jsonfile, "w") as jf:
+        json.dump(graph_data[address], jf, indent=2)
+    print(f"📄 Graph JSON written to {jsonfile}")
+
+    state["completed"].add(address)
+    save_state(state)
+
+CHAINGE_ROOTS = [
+    "kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5",    
+    "kaspa:qpgmt2dn8wcqf0436n0kueap7yx82n7raurlj6aqjc3t3wm9y5ssqtg9e4lsm",
+    "kaspa:qpy03sxk3z22pacz2vkn2nrqeglvptugyqy54xal2skha6xh0cr7wjueueg79",
+    "kaspa:qz9cqmddjppjyth8rngevfs767m5nvm0480nlgs5ve8d6aegv4g9xzu2tgg0u"
+]
 
 if __name__ == "__main__":
-    start_address = "kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5" # first Chainge Finance wallet
-    #start_address = "kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty" # received >57M Kas from first wallet
-    trace_wallet(start_address, depth=2, force=True)
-    print("✅ Recursive tracing complete. See results in 'flow_data/'")
+    state = load_state()
+    if not state["queue"]:
+        for root in CHAINGE_ROOTS:
+            state["queue"].append({"address": root, "depth": MAX_DEPTH})
+
+    while state["queue"]:
+        current = state["queue"].pop(0)
+        trace_wallet(state, current["address"], current["depth"], force=False)
+
+    print("✅ Full recursive tracing complete. All data saved to 'flow_data/'")
