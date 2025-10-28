@@ -33,7 +33,7 @@ This repository traces actual KAS outflows from Chainge-linked wallets to known 
 We begin with 4 Chainge-linked wallets:
 - 🟠 `qqwvnk...` (Root wallet)
 - 🟠 3 other wallets labeled on kas.fyi
-- ❌ The previously so-called “Vault” wallet is excluded due to weak linkage (only ~26% of inflow from Chainge)
+- 🟠 The previously so-called “Vault” wallet (kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty) is included again. While it has weak linkage (only ~26% of inflow from other Chainge marked wallets on kas.fyi), users have confirmed bridging transactions involved this wallet AFTER Jan 27 2024. This is when the Root wallet transferred ~57M Kaspa to the vault. 
 
 We recursively trace wallet inflows up to **4 hops deep**, forming a funding graph from Chainge to any recipient wallet.
 
@@ -78,7 +78,6 @@ Edge widths are scaled by transfer volume (capped to 10×).
 - **≥95% attribution threshold** avoids over-attribution to Chainge
 - **4-hop trace depth** balances accuracy and reach
 - **Only known CEX deposit addresses** are included
-- **Vault wallet excluded** from attribution and flow due to weak linkage
 
 All data is one-directional (Chainge → CEX). No return flows or self-custody are considered.
 
@@ -86,7 +85,7 @@ All data is one-directional (Chainge → CEX). No return flows or self-custody a
 
 ## 🚨 API Usage Warning
 
-All transaction data comes from [KrcBot’s public API](https://krcbot.com/api-docs).  
+All transaction data comes from Kaspa API calls. 
 **Please avoid re-running full traces unnecessarily**, as this may overload public nodes.
 
 Use the included pre-fetched `.csv` files in `flow_data/`.
