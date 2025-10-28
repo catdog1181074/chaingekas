@@ -4,6 +4,7 @@ import os
 
 DATA_DIR = "flow_data_fullhistory"
 PRIMARY_WALLET = "kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5"
+# kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty # <<-- check this wallet too - it functioned in Chainge bridging after Jan 27 2024
 
 def get_filename(address):
     return os.path.join(DATA_DIR, f"{address.replace(':', '_')}_fullhistory.csv")
