@@ -30,10 +30,10 @@ This repository traces actual KAS outflows from Chainge-linked wallets to known 
 
 ### Step 1: Recursive Wallet Tracing
 
-We begin with 4 Chainge-linked wallets:
-- 🟠 `qqwvnk...` (Root wallet)
+We begin with 5 Chainge-linked wallets:
+- 🟠 `kaspa:qqwvnkp47wsj6n4hkdlgj8dsauyx0xvefunnwvvsmpq2udd0ka8ckmpuqw3k5` (Root wallet)
 - 🟠 3 other wallets labeled on kas.fyi
-- 🟠 The previously so-called “Vault” wallet (kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty) is included again. While it has weak linkage (only ~26% of inflow from other Chainge marked wallets on kas.fyi), users have confirmed bridging transactions involved this wallet AFTER Jan 27 2024. This is when the Root wallet transferred ~57M Kaspa to the vault. 
+- 🟠 The previously so-called “Vault” wallet (`kaspa:qq9zagcza4jt76eev9jl5z0nqhe0thcu7js8larktj4sle7lvgnw7sfcewlty`) is included. While we previously stated it has weak linkage (only ~26% of inflow from other Chainge marked wallets on kas.fyi), users have now confirmed bridging transactions involved this wallet AFTER Jan 27 2024. This is when the Root wallet transferred ~57M Kaspa to the ”Vault”. 
 
 We recursively trace wallet inflows up to **4 hops deep**, forming a funding graph from Chainge to any recipient wallet.
 
