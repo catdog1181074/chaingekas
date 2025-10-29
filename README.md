@@ -1,6 +1,6 @@
 # 🧾 Chainge-to-CEX Kaspa Flow Analysis
 
-This repository investigates how much native Kaspa (KAS) Chainge Finance likely controlled — and how much was transferred to centralized exchanges (CEXes), presumably for liquidation. The analysis is based on transaction-level tracing using the [KrcBot public API](https://krcbot.com/api-docs), and results are visualized as a verified shell graph.
+This repository investigates how much native Kaspa (KAS) Chainge Finance likely controlled — and how much was transferred to centralized exchanges (CEXes), presumably for liquidation. The analysis is based on transaction-level tracing using the [Kaspa public API](https://api.kaspa.org/docs), and results are visualized as a verified shell graph.
 
 ---
 
